@@ -199,6 +199,12 @@ export const SEARCH_FIELDS = {
     'device_id',
     'region',
     'category',
+    // Firewalla API query fields
+    'device.id',
+    'device.name',
+    'device.ip',
+    'gid',
+    'domain',
     // Enhanced geographic fields
     'country',
     'country_code',
@@ -243,6 +249,13 @@ export const SEARCH_FIELDS = {
     'direction',
     'description',
     'message',
+    // Firewalla API query fields
+    'device.id',
+    'device.name',
+    'remote.region',
+    'remote.category',
+    'remote.domain',
+    'box.name',
     // Enhanced geographic fields
     'country',
     'country_code',

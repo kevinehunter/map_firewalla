@@ -103,7 +103,7 @@ export class FirewallaMCPServer {
                 query: {
                   type: 'string',
                   description:
-                    'Search query for filtering alarms (default: status:1 for active). Use type:N where N is: 1=Security Activity, 2=Abnormal Upload, 3=Large Bandwidth Usage, 4=Monthly Data Plan, 5=New Device, 6=Device Back Online, 7=Device Offline, 8=Video Activity, 9=Gaming Activity, 10=Porn Activity, 11=VPN Activity, 12=VPN Connection Restored, 13=VPN Connection Error, 14=Open Port, 15=Internet Connectivity Update, 16=Large Upload. Examples: type:8 (video), type:10 (porn), region:US, source_ip:*',
+                    'Search query for filtering alarms (default: status:1 for active). Use type:N where N is: 1=Security Activity, 2=Abnormal Upload, 3=Large Bandwidth Usage, 4=Monthly Data Plan, 5=New Device, 6=Device Back Online, 7=Device Offline, 8=Video Activity, 9=Gaming Activity, 10=Porn Activity, 11=VPN Activity, 12=VPN Connection Restored, 13=VPN Connection Error, 14=Open Port, 15=Internet Connectivity Update, 16=Large Upload. Supported fields: type, status, device.id (MAC), device.name, remote.region, remote.category, remote.domain. Examples: type:8 (video), type:10 (porn), remote.region:US, device.name:*iPhone*',
                 },
                 groupBy: {
                   type: 'string',
@@ -478,7 +478,7 @@ export class FirewallaMCPServer {
                 query: {
                   type: 'string',
                   description:
-                    'Search query using Firewalla syntax. Supported fields: type:1-16 (see alarm types above), resolved:true/false, status:1/2 (active/archived), source_ip:192.168.*, region:US (country code), gid:box_id, device.name:*, message:"text search". Examples: "type:8 AND region:US" (video from US), "type:10 AND status:1" (active porn alerts), "source_ip:192.168.* AND NOT resolved:true"',
+                    'Search query using Firewalla syntax. Supported fields: type:1-16 (see alarm types above), status:1/2 (active/archived), remote.region:US (country code), remote.category:porn, remote.domain:*.example.com, device.id:"mac:AA:BB:CC:DD:EE:FF", device.name:*iPhone*, box.name:*. Examples: "type:8 remote.region:US" (video from US), "type:10 status:1" (active porn alerts), "device.name:*DESKTOP*"',
                 },
                 groupBy: {
                   type: 'string',
