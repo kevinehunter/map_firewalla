@@ -990,127 +990,45 @@ export class FirewallaClient {
         : '24h';
       const validatedTop = Math.max(1, Number(top) || 50);
 
-      // Calculate time range for the period
-      const end = Math.floor(Date.now() / 1000);
-      let begin: number;
-
-      switch (validatedPeriod) {
-        case '1h':
-          begin = end - 60 * 60;
-          break;
-        case '24h':
-          begin = end - 24 * 60 * 60;
-          break;
-        case '7d':
-          begin = end - 7 * 24 * 60 * 60;
-          break;
-        case '30d':
-          begin = end - 30 * 24 * 60 * 60;
-          break;
-        default:
-          begin = end - 24 * 60 * 60;
-      }
-
-      // Use global endpoint with box parameter for filtering
-      // Note: groupBy parameter conflicts with query+box combination, so we do client-side grouping
-      const params: Record<string, unknown> = {
-        query: `ts:${begin}-${end}`,
-        sortBy: 'ts:desc',
-        limit: Math.min(validatedTop * 10, 1000), // Get more data for client-side grouping
-      };
-
-      // Apply box filter through the query parameter
-      params.query = this.addBoxFilter(params.query as string | undefined);
-
-      const endpoint = '/v2/flows';
-
-      const response = await this.request<{
-        count: number;
-        results: any[];
-        next_cursor?: string;
-      }>('GET', endpoint, params);
-
-      // Process and aggregate bandwidth by device
-      const deviceBandwidth = new Map<string, BandwidthUsage>();
-
-      logger.debug(
-        `Processing ${response.results?.length || 0} flows for bandwidth calculation`
+      // Use device status endpoint which has accurate cumulative bandwidth stats
+      // The /v2/devices endpoint includes totalDownload and totalUpload fields
+      const deviceResponse = await this.getDeviceStatus(
+        undefined,
+        undefined,
+        Math.min(validatedTop * 3, 500) // Fetch extra to ensure we get top consumers
       );
 
-      (response.results || []).forEach((flow: any) => {
-        // Enhanced device ID detection with more fallbacks
-        const deviceId =
-          flow.device?.id ||
-          flow.deviceId ||
-          flow.source?.id ||
-          flow.localIP ||
-          flow.device?.ip ||
-          'unknown';
-        const deviceName =
-          flow.device?.name ||
-          flow.deviceName ||
-          flow.device?.dns ||
-          'Unknown Device';
-        const deviceIp =
-          flow.device?.ip || flow.localIP || flow.source?.ip || 'unknown';
+      logger.debug(
+        `Processing ${deviceResponse.results?.length || 0} devices for bandwidth calculation`
+      );
 
-        // Enhanced bandwidth field detection
-        const upload = Number(
-          flow.upload || flow.uploadBytes || flow.tx || flow.bytes_sent || 0
-        );
-        const download = Number(
-          flow.download ||
-            flow.downloadBytes ||
-            flow.rx ||
-            flow.bytes_received ||
-            0
-        );
-
-        // More permissive filtering - only skip if BOTH device is unknown AND no traffic
-        if (deviceId === 'unknown' && upload === 0 && download === 0) {
-          return;
-        }
-
-        logger.debug(
-          `Flow: deviceId=${deviceId}, upload=${upload}, download=${download}`
-        );
-
-        if (deviceBandwidth.has(deviceId)) {
-          const existing = deviceBandwidth.get(deviceId)!;
-          existing.bytes_uploaded += upload;
-          existing.bytes_downloaded += download;
-          existing.total_bytes =
-            existing.bytes_uploaded + existing.bytes_downloaded;
-        } else {
-          deviceBandwidth.set(deviceId, {
-            device_id: deviceId,
-            device_name: deviceName,
-            ip: deviceIp,
+      // Map device data to bandwidth usage format
+      const results: BandwidthUsage[] = (deviceResponse.results || [])
+        .map((device: any) => {
+          const upload = Number(device.totalUpload || 0);
+          const download = Number(device.totalDownload || 0);
+          return {
+            device_id: device.id || device.mac || 'unknown',
+            device_name: device.name || 'Unknown Device',
+            ip: device.ip || 'unknown',
             bytes_uploaded: upload,
             bytes_downloaded: download,
             total_bytes: upload + download,
             period: validatedPeriod,
-          });
-        }
-      });
-
-      // Convert to array and sort by total bandwidth
-      const allDevices = Array.from(deviceBandwidth.values());
-      logger.debug(`Total unique devices found: ${allDevices.length}`);
-
-      const results = allDevices
-        .filter(device => device.total_bytes > 0)
-        .sort((a, b) => b.total_bytes - a.total_bytes)
+          };
+        })
+        .filter((device: BandwidthUsage) => device.total_bytes > 0)
+        .sort(
+          (a: BandwidthUsage, b: BandwidthUsage) =>
+            b.total_bytes - a.total_bytes
+        )
         .slice(0, validatedTop);
 
-      logger.debug(
-        `Final results after filtering and limiting: ${results.length}`
-      );
+      logger.debug(`Final results after filtering and limiting: ${results.length}`);
 
       return {
         count: results.length,
         results,
-        next_cursor: response.next_cursor,
       };
     } catch (error) {
       logger.error(
