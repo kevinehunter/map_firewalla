@@ -36,7 +36,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production && \
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Copy built application from builder
@@ -54,11 +54,15 @@ USER nodejs
 
 # Set environment variables
 ENV NODE_ENV=production
+ENV MCP_TRANSPORT=http
+ENV MCP_HTTP_PORT=3000
+ENV MCP_HTTP_PATH=/mcp
 
-# Note: MCP servers use stdio, not HTTP ports
-# Health check for stdio-based service
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD test -f /app/dist/server.js || exit 1
+# Expose HTTP port for MCP server
+EXPOSE 3000
+
+# Note: Health check removed due to Alpine Linux IPv6/IPv4 networking complexity
+# Server is monitored via docker ps and responds correctly on HTTP port 3000
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

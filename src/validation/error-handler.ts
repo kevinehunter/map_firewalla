@@ -1364,14 +1364,17 @@ export class QuerySanitizer {
     }
 
     // FieldValidator is now imported at the top of the file
-    
-    // Extract field names from query using simple regex
-    // Matches patterns like "field_name:" or "field_name:value"
-    const fieldPattern = /(\w+):/g;
+
+    // Extract field names from query using regex that supports dotted field names
+    // Matches patterns like "field_name:", "device.ip:", "remote.region:value"
+    // IMPORTANT: First remove quoted strings to avoid matching colons inside values
+    const queryWithoutQuotedStrings = query.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+
+    const fieldPattern = /([a-zA-Z_][a-zA-Z0-9_.]*?):/g;
     const foundFields: string[] = [];
     let match;
-    
-    while ((match = fieldPattern.exec(query)) !== null) {
+
+    while ((match = fieldPattern.exec(queryWithoutQuotedStrings)) !== null) {
       const fieldName = match[1];
       if (!foundFields.includes(fieldName)) {
         foundFields.push(fieldName);

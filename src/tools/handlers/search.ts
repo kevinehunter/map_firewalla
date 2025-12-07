@@ -39,6 +39,7 @@ import { SEARCH_FIELDS, type SearchParams } from '../../search/types.js';
 import type { ScoringCorrelationParams } from '../../validation/field-mapper.js';
 // ResponseStandardizer import removed - using direct response creation
 import { validateCountryCodes } from '../../utils/geographic.js';
+import { normalizeQuery } from '../../utils/query-helpers.js';
 
 // Base search interface to reduce duplication
 export interface BaseSearchArgs extends ToolArgs {
@@ -200,8 +201,11 @@ function validateCommonSearchParameters(
     };
   }
 
+  // Normalize query (auto-quote MAC addresses, etc.) before validation
+  const normalizedQuery = normalizeQuery(args.query);
+
   // Validate query syntax
-  const querySyntaxValidation = validateFirewallaQuerySyntax(args.query);
+  const querySyntaxValidation = validateFirewallaQuerySyntax(normalizedQuery);
 
   if (!querySyntaxValidation.isValid) {
     const examples = getExampleQueries(entityType);
@@ -222,9 +226,9 @@ function validateCommonSearchParameters(
     };
   }
 
-  // Validate field names in the query
+  // Validate field names in the query (use normalized query)
   const fieldValidation = QuerySanitizer.validateQueryFields(
-    args.query,
+    normalizedQuery,
     entityType
   );
 
@@ -297,7 +301,7 @@ function validateCommonSearchParameters(
   return {
     isValid: true,
     limit: args.limit,
-    query: args.query,
+    query: normalizedQuery,
     cursor: args.cursor,
     groupBy: args.group_by,
   };
@@ -394,7 +398,7 @@ See the Query Syntax Guide for complete documentation: /docs/query-syntax-guide.
         );
       }
 
-      const finalQuery = searchArgs.query;
+      const finalQuery = validation.query || searchArgs.query; // Use normalized query from validation
 
       // ------------------------------------------------------------
       // Validate geographic_filters if provided
@@ -747,7 +751,7 @@ See the Error Handling Guide for troubleshooting: /docs/error-handling-guide.md`
 
       const searchTools = createSearchTools(firewalla);
       const searchParams: SearchParams = {
-        query: searchArgs.query,
+        query: validation.query || searchArgs.query, // Use normalized query from validation
         limit: searchArgs.limit,
         offset: searchArgs.offset,
         cursor: searchArgs.cursor,
@@ -1006,7 +1010,7 @@ For rule management operations, see pause_rule and resume_rule tools.`;
 
       const searchTools = createSearchTools(firewalla);
       const searchParams: SearchParams = {
-        query: searchArgs.query,
+        query: validation.query || searchArgs.query, // Use normalized query from validation
         limit: searchArgs.limit,
         offset: searchArgs.offset,
         cursor: searchArgs.cursor,
@@ -1213,7 +1217,7 @@ See the Data Normalization Guide for field details.`;
 
       const searchTools = createSearchTools(firewalla);
       const searchParams: SearchParams = {
-        query: searchArgs.query,
+        query: validation.query || searchArgs.query, // Use normalized query from validation
         limit: searchArgs.limit,
         offset: searchArgs.offset,
         cursor: searchArgs.cursor,
@@ -1369,7 +1373,7 @@ See the Target List Management guide for configuration details.`;
 
       const searchTools = createSearchTools(firewalla);
       const searchParams: SearchParams = {
-        query: searchArgs.query,
+        query: validation.query || searchArgs.query, // Use normalized query from validation
         limit: searchArgs.limit,
         offset: searchArgs.offset,
         cursor: searchArgs.cursor,

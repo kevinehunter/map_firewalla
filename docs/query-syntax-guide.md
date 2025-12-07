@@ -6,6 +6,7 @@ This guide provides comprehensive documentation for the query syntax used across
 
 - [Overview](#overview)
 - [Basic Field Queries](#basic-field-queries)
+- [Special Characters and Quoting](#special-characters-and-quoting)
 - [Logical Operators](#logical-operators)
 - [Wildcards and Patterns](#wildcards-and-patterns)
 - [Ranges and Comparisons](#ranges-and-comparisons)
@@ -73,6 +74,69 @@ SEVERITY:high
 Protocol:tcp
 ACTION:block
 ```
+
+## Special Characters and Quoting
+
+Some values require special handling due to characters that have meaning in the query syntax.
+
+### MAC Addresses
+
+MAC addresses contain colons (`:`) which are also used as field separators. Always quote MAC address values:
+
+```bash
+# Correct - quoted MAC address
+device.id:"FC:34:97:A6:5B:06"
+mac:"AA:BB:CC:DD:EE:FF"
+
+# The server automatically quotes unquoted MAC addresses
+device.id:FC:34:97:A6:5B:06  # Auto-quoted to device.id:"FC:34:97:A6:5B:06"
+```
+
+### Values with Spaces
+
+Quote any value containing spaces:
+
+```bash
+# Correct - quoted value with spaces
+device.name:"Preston's Gaming PC"
+name:"John's iPhone"
+
+# Incorrect - spaces break the query
+device.name:Preston's Gaming PC  # Parsed incorrectly
+```
+
+### User-Friendly Field Names
+
+The server supports user-friendly field aliases that are automatically translated to API field names:
+
+```bash
+# User-friendly names (recommended)
+source_ip:192.168.1.100      # Translates to device.ip:192.168.1.100
+destination_ip:8.8.8.8       # Translates to remote.ip:8.8.8.8
+device_name:*iPhone*         # Translates to device.name:*iPhone*
+device_mac:AA:BB:CC:DD:EE:FF # Translates to device.id:"AA:BB:CC:DD:EE:FF"
+
+# API field names (also work directly)
+device.ip:192.168.1.100
+remote.ip:8.8.8.8
+device.name:*iPhone*
+device.id:"AA:BB:CC:DD:EE:FF"
+```
+
+### Field Name Aliases
+
+| User-Friendly Name | API Field Name |
+|--------------------|----------------|
+| `source_ip`, `src_ip`, `device_ip` | `device.ip` |
+| `destination_ip`, `dest_ip`, `dst_ip`, `remote_ip` | `remote.ip` |
+| `device_id`, `device_mac`, `mac`, `mac_address` | `device.id` |
+| `device_name` | `device.name` |
+| `device_network`, `network_name` | `device.network.name` |
+| `remote_domain`, `dest_domain`, `destination_domain` | `remote.domain` |
+| `remote_category` | `remote.category` |
+| `remote_region` | `remote.region` |
+| `box_name` | `box.name` |
+| `box_id` | `gid` |
 
 ## Logical Operators
 

@@ -328,6 +328,17 @@ export const SEARCH_FIELDS = {
     'connection_count',
     'total_download',
     'total_upload',
+    // User-friendly field aliases (translated to API fields)
+    'device_id',
+    'device_mac',
+    'device_name',
+    'device_ip',
+    'mac_address',
+    // API field names
+    'device.id',
+    'device.name',
+    'device.ip',
+    'device.network.name',
   ],
   target_lists: ['name', 'owner', 'category', 'target_count', 'last_updated'],
 };

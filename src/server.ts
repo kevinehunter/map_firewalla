@@ -39,6 +39,13 @@ import { setupTools } from './tools/index.js';
 import { setupResources } from './resources/index.js';
 import { setupPrompts } from './prompts/index.js';
 import { logger } from './monitoring/logger.js';
+import {
+  isOAuthMetadataRequest,
+  serveOAuthMetadata,
+  validateToken,
+  send401Response,
+  type OAuthConfig,
+} from './oauth/handler.js';
 
 /**
  * UUID v4 validation regex pattern
@@ -900,15 +907,67 @@ export class FirewallaMCPServer {
       });
     };
 
+    // OAuth configuration from environment
+    const oauthConfig: OAuthConfig | null = process.env.AUTH0_DOMAIN && process.env.AUTH0_AUDIENCE
+      ? {
+          domain: process.env.AUTH0_DOMAIN,
+          audience: process.env.AUTH0_AUDIENCE,
+          required: process.env.OAUTH_REQUIRED !== 'false',
+        }
+      : null;
+
+    // Get resource URL for OAuth metadata
+    const resourceUrl = process.env.MCP_PUBLIC_URL || `http://localhost:${port}${path}`;
+    const authServerUrl = oauthConfig ? `https://${oauthConfig.domain}/` : '';
+
+    if (oauthConfig) {
+      logger.info(`OAuth enabled: domain=${oauthConfig.domain}, audience=${oauthConfig.audience}`);
+    } else {
+      logger.info('OAuth not configured (AUTH0_DOMAIN and AUTH0_AUDIENCE not set)');
+    }
+
     // Create HTTP server
     const httpServer = createServer(
       (req: IncomingMessage, res: ServerResponse) => {
         void (async () => {
+          // Handle CORS preflight requests
+          if (req.method === 'OPTIONS') {
+            res.writeHead(204, {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization, mcp-session-id, Accept',
+              'Access-Control-Max-Age': '86400',
+            });
+            res.end();
+            return;
+          }
+
+          // Handle OAuth metadata endpoint
+          if (isOAuthMetadataRequest(req)) {
+            if (oauthConfig) {
+              serveOAuthMetadata(req, res, resourceUrl, authServerUrl);
+            } else {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'OAuth not configured' }));
+            }
+            return;
+          }
+
           // Only handle requests to our configured path
           if (!req.url?.startsWith(path)) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not found' }));
             return;
+          }
+
+          // Validate OAuth token if configured
+          if (oauthConfig && oauthConfig.required) {
+            const authResult = await validateToken(req, oauthConfig);
+            if (!authResult.authenticated) {
+              send401Response(res, resourceUrl, authResult.errorCode, authResult.error);
+              return;
+            }
+            logger.debug(`Authenticated request from user: ${authResult.userId}`);
           }
 
           const sessionId = req.headers['mcp-session-id'] as string | undefined;

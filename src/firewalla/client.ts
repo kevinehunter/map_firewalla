@@ -52,6 +52,8 @@ import {
 import { safeAccess, safeValue } from '../utils/data-normalizer.js';
 import { validateAlarmId } from '../utils/alarm-id-validation.js';
 import { normalizeTimestamps } from '../utils/data-validator.js';
+import { translateQueryFields } from '../search/field-mapper.js';
+import { normalizeQuery } from '../utils/query-helpers.js';
 
 /**
  * Standard API response wrapper for Firewalla MSP endpoints
@@ -4668,17 +4670,24 @@ export class FirewallaClient {
    * @private
    */
   private addBoxFilter(query?: string): string | undefined {
+    // Preprocess query: normalize MAC addresses and translate field names
+    let processedQuery = query;
+    if (processedQuery) {
+      processedQuery = normalizeQuery(processedQuery);
+      processedQuery = translateQueryFields(processedQuery);
+    }
+
     if (!this.config.boxId) {
-      return query;
+      return processedQuery;
     }
 
     const boxFilter = `box.id:${this.config.boxId}`;
 
-    if (!query || query.trim() === '') {
+    if (!processedQuery || processedQuery.trim() === '') {
       return boxFilter;
     }
 
-    return `${query} ${boxFilter}`;
+    return `${processedQuery} ${boxFilter}`;
   }
 
   /**
